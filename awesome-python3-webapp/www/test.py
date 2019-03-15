@@ -23,7 +23,7 @@ from models import User, Blog, Comment
 
 # async def test(loop):
 #
-#     await orm.create_pool(loop=loop, user='www-data', password='www-data', db='awesome', charset='utf8')
+#     await orm.create_pool(loop=loop, user='www-data', password='WWW-data12!@', db='awesome', charset='utf8')
 #     u = User(name='LIU Shusi', email='i_love_lin@163.com', passwd='18656590', image='about:blank')
 #     await u.save()
 #

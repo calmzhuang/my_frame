@@ -13,7 +13,7 @@ configs = {
         'host': 'localhost',
         'port': 3306,
         'user': 'www-data',
-        'password': 'www-data',
+        'password': 'WWW-data12!@',
         'db': 'awesome'
     },
     'session': {
