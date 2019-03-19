@@ -14,7 +14,7 @@ from aiohttp import web
 from coroweb import get, post
 from apis import Page, APIValueError, APIResourceNotFoundError, APIPermissionError, APIError
 
-from models import User, Comment, Blog, next_id
+from models import User, Comment, Blog, next_id, Time_fragment, Envelope
 from config import configs
 
 COOKIE_NAME = 'awesession'
@@ -162,7 +162,21 @@ def manage_comments(*, page='1'):
 @get('/manage/blogs')
 def manage_blogs(*, page='1'):
     return {
-        '__template__': 'manage_blogs.html',
+        '__template__': 'manage_blog.html',
+        'page_index': get_page_index(page)
+    }
+
+@get('/manage/time')
+def manage_time(*, page='1'):
+    return {
+        '__template__': 'manage_time.html',
+        'page_index': get_page_index(page)
+    }
+
+@get('/manage/envelope')
+def manage_envelope(*, page='1'):
+    return {
+        '__template__': 'manage_envelope.html',
         'page_index': get_page_index(page)
     }
 
@@ -174,12 +188,44 @@ def manage_create_blog():
         'action': '/api/blogs'
     }
 
+@get('/manage/time/create')
+def manage_create_time():
+    return {
+        '__template__': 'manage_time_edit.html',
+        'id': '',
+        'action': '/api/time'
+    }
+
+@get('/manage/envelope/create')
+def manage_create_envelope():
+    return {
+        '__template__': 'manage_envelope_edit.html',
+        'id': '',
+        'action': '/api/envelope'
+    }
+
 @get('/manage/blogs/edit')
 def manage_edit_blog(*, id):
     return {
         '__template__': 'manage_blog_edit.html',
         'id': id,
         'action': '/api/blogs/%s' % id
+    }
+
+@get('/manage/time/edit')
+def manage_edit_time(*, id):
+    return {
+        '__template__': 'manage_time_edit.html',
+        'id': id,
+        'action': '/api/time/%s' % id
+    }
+
+@get('/manage/envelope/edit')
+def manage_edit_envelope(*, id):
+    return {
+        '__template__': 'manage_envelope_edit.html',
+        'id': id,
+        'action': '/api/envelope/%s' % id
     }
 
 @get('/manage/users')
@@ -270,9 +316,39 @@ async def api_blogs(*, page='1'):
     blogs = await Blog.findAll(orderBy='created_at desc', limit=(p.offset, p.limit))
     return dict(page=p, blogs=blogs)
 
+@get('/api/time')
+async def api_time(*, page='1'):
+    page_index = get_page_index(page)
+    num = await Time_fragment.findNumber('count(id)')
+    p = Page(num, page_index)
+    if num == 0:
+        return dict(page=p, blogs=())
+    time_fragment = await Time_fragment.findAll(orderBy='created_at desc', limit=(p.offset, p.limit))
+    return dict(page=p, time_fragment=time_fragment)
+
+@get('/api/envelope')
+async def api_envelope(*, page='1'):
+    page_index = get_page_index(page)
+    num = await Envelope.findNumber('count(id)')
+    p = Page(num, page_index)
+    if num == 0:
+        return dict(page=p, blogs=())
+    envelope = await Envelope.findAll(orderBy='created_at desc', limit=(p.offset, p.limit))
+    return dict(page=p, envelope=envelope)
+
 @get('/api/blogs/{id}')
 async def api_get_blog(*, id):
     blog = await Blog.find(id)
+    return blog
+
+@get('/api/time/{id}')
+async def api_get_time(*, id):
+    times = await Time_fragment.find(id)
+    return times
+
+@get('/api/envelope/{id}')
+async def api_get_envelope(*, id):
+    blog = await Envelope.find(id)
     return blog
 
 @post('/api/blogs')
@@ -287,6 +363,30 @@ async def api_create_blog(request, *, name, summary, content):
     blog = Blog(user_id=request.__user__.id, user_name=request.__user__.name, user_image=request.__user__.image, name=name.strip(), summary=summary.strip(), content=content.strip())
     await blog.save()
     return blog
+
+@post('/api/time')
+async def api_create_time(request, *, introduction, weather, album_url):
+    check_admin(request)
+    if not introduction or not introduction.strip():
+        raise APIValueError('introduction', 'introduction cannot be empty.')
+    if not weather or not weather.strip():
+        raise APIValueError('weather', 'weather cannot be empty.')
+    if not album_url or not album_url.strip():
+        raise APIValueError('album_url', 'album cannot be empty.')
+    time_fragment = Time_fragment(user_id=request.__user__.id, user_name=request.__user__.name, user_image=request.__user__.image, introduction=introduction.strip(), weather=weather.strip(), album_url=album_url.strip())
+    await time_fragment.save()
+    return time_fragment
+
+@post('/api/envelope')
+async def api_create_envelope(request, *, remarks, postcards):
+    check_admin(request)
+    if not remarks or not remarks.strip():
+        raise APIValueError('remarks', 'remarks cannot be empty.')
+    if not postcards or not postcards.strip():
+        raise APIValueError('postcards', 'postcards cannot be empty.')
+    envelope = Envelope(user_id=request.__user__.id, user_name=request.__user__.name, user_image=request.__user__.image, remarks=remarks.strip(), postcards=postcards.strip())
+    await envelope.save()
+    return envelope
 
 @post('/api/blogs/{id}')
 async def api_update_blog(id, request, *, name, summary, content):
@@ -304,9 +404,52 @@ async def api_update_blog(id, request, *, name, summary, content):
     await blog.update()
     return blog
 
+@post('/api/time/{id}')
+async def api_update_time(id, request, *, introduction, weather, album_url):
+    check_admin(request)
+    time_fragment = await Time_fragment.find(id)
+    if not introduction or not introduction.strip():
+        raise APIValueError('introduction', 'introduction cannot be empty.')
+    if not weather or not weather.strip():
+        raise APIValueError('weather', 'weather cannot be empty.')
+    if not album_url or not album_url.strip():
+        raise APIValueError('album_url', 'album cannot be empty.')
+    time_fragment.introduction = introduction.strip()
+    time_fragment.weather = weather.strip()
+    time_fragment.album_url = album_url.strip()
+    await time_fragment.update()
+    return time_fragment
+
+@post('/api/envelope/{id}')
+async def api_update_envelope(id, request, *, remarks, postcards):
+    check_admin(request)
+    envelope = await Envelope.find(id)
+    if not remarks or not remarks.strip():
+        raise APIValueError('remarks', 'remarks cannot be empty.')
+    if not postcards or not postcards.strip():
+        raise APIValueError('postcards', 'postcards cannot be empty.')
+    envelope.name = remarks.strip()
+    envelope.summary = postcards.strip()
+    await envelope.update()
+    return envelope
+
 @post('/api/blogs/{id}/delete')
 async def api_delete_blog(request, *, id):
     check_admin(request)
     blog = await Blog.find(id)
     await blog.remove()
+    return dict(id=id)
+
+@post('/api/time/{id}/delete')
+async def api_delete_time(request, *, id):
+    check_admin(request)
+    times = await Time_fragment.find(id)
+    await times.remove()
+    return dict(id=id)
+
+@post('/api/envelope/{id}/delete')
+async def api_delete_envelope(request, *, id):
+    check_admin(request)
+    envelope = await Envelope.find(id)
+    await envelope.remove()
     return dict(id=id)
